@@ -44,22 +44,24 @@
             <div class="producto-specs">
               <h2>Especificaciones</h2>
               <table class="specs-table">
-                <tr>
-                  <td>Tipo</td>
-                  <td>{{ formatTipo(producto.tipo) }}</td>
-                </tr>
-                <tr>
-                  <td>Categoria</td>
-                  <td>Tequila 100% Agave</td>
-                </tr>
-                <tr>
-                  <td>Origen</td>
-                  <td>Tototlan, Jalisco</td>
-                </tr>
-                <tr>
-                  <td>Disponibilidad</td>
-                  <td>{{ producto.activo ? 'Disponible' : 'No disponible' }}</td>
-                </tr>
+                <tbody>
+                  <tr>
+                    <td>Tipo</td>
+                    <td>{{ formatTipo(producto.tipo) }}</td>
+                  </tr>
+                  <tr>
+                    <td>Categoria</td>
+                    <td>Tequila 100% Agave</td>
+                  </tr>
+                  <tr>
+                    <td>Origen</td>
+                    <td>Tototlan, Jalisco</td>
+                  </tr>
+                  <tr>
+                    <td>Disponibilidad</td>
+                    <td>{{ producto.activo ? 'Disponible' : 'No disponible' }}</td>
+                  </tr>
+                </tbody>
               </table>
             </div>
 
@@ -82,12 +84,13 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ShoppingCart } from 'lucide-vue-next'
-import { getProductoById } from '@/lib/supabaseClient'
 import { resolveProductImage } from '@/lib/imageHelper'
 import { useCarritoStore } from '@/stores/carritoStore'
+import { useProductosStore } from '@/stores/productosStore'
 
 const route = useRoute()
 const carrito = useCarritoStore()
+const productosStore = useProductosStore()
 const producto = ref(null)
 const loading = ref(true)
 const error = ref(false)
@@ -125,7 +128,9 @@ const formatPrice = (precio) => {
 onMounted(async () => {
   try {
     loading.value = true
-    producto.value = await getProductoById(route.params.id)
+    // Usa el store con caché — si ya se cargaron los productos, no hace request
+    producto.value = await productosStore.getById(route.params.id)
+    if (!producto.value) error.value = true
   } catch (err) {
     console.error('Error al cargar producto:', err)
     error.value = true
@@ -186,7 +191,7 @@ onMounted(async () => {
 .detalle-hero {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 6rem 2rem 3rem;
+  padding: 7rem 2rem 4rem;
 }
 
 .detalle-grid {

@@ -116,11 +116,12 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { ShoppingCart } from 'lucide-vue-next'
-import { getProductos } from '@/lib/supabaseClient'
 import { resolveProductImage } from '@/lib/imageHelper'
 import { useCarritoStore } from '@/stores/carritoStore'
+import { useProductosStore } from '@/stores/productosStore'
 
 const carrito = useCarritoStore()
+const productosStore = useProductosStore()
 
 function agregarDesdeGrid(e, producto) {
   e.preventDefault()
@@ -128,9 +129,10 @@ function agregarDesdeGrid(e, producto) {
   carrito.agregarProducto(producto)
 }
 
-const productos = ref([])
-const loading = ref(false)
-const error = ref(false)
+// Acceso reactivo al store
+const productos = computed(() => productosStore.productos)
+const loading = computed(() => productosStore.loading)
+const error = computed(() => productosStore.error)
 
 // Filtros
 const filtroTipo = ref(null)
@@ -184,17 +186,11 @@ const formatPrice = (precio) => {
 }
 
 const fetchProductos = async () => {
-  loading.value = true
-  error.value = false
   try {
-    const data = await getProductos()
-    productos.value = data
+    const data = await productosStore.fetchProductos()
     precioMax.value = Math.ceil(Math.max(...data.map(p => Number(p.precio))))
   } catch (err) {
-    console.error('Error al cargar productos:', err)
-    error.value = true
-  } finally {
-    loading.value = false
+    // El store ya maneja el error
   }
 }
 
@@ -416,14 +412,14 @@ onMounted(() => {
 .product-image-wrapper {
   position: relative;
   overflow: hidden;
-  height: 280px;
   background-color: #f5f5f5;
 }
 
 .product-image {
   width: 100%;
-  height: 100%;
+  aspect-ratio: 3 / 4;
   object-fit: cover;
+  object-position: center 60%;
   transition: transform 0.3s ease;
 }
 
@@ -541,7 +537,7 @@ onMounted(() => {
   }
 
   .product-image-wrapper {
-    height: 240px;
+    /* aspect-ratio se mantiene responsive */
   }
 
   .filtros-bar {

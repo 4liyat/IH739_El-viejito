@@ -182,6 +182,7 @@ async function enviarPedido() {
     }))
 
     const pedido = {
+      id: crypto.randomUUID(),
       cliente_nombre: form.nombre,
       cliente_email: form.email,
       telefono: form.telefono,
