@@ -88,7 +88,14 @@
                   <p class="product-description">{{ producto.descripcion }}</p>
                   <div class="product-footer">
                     <span class="product-price">{{ formatPrice(producto.precio) }}</span>
-                    <span class="ver-detalle">Ver detalle &rarr;</span>
+                    <button
+                      class="btn-agregar-grid"
+                      @click="agregarDesdeGrid($event, producto)"
+                      aria-label="Agregar al carrito"
+                    >
+                      <ShoppingCart :size="15" />
+                      Agregar
+                    </button>
                   </div>
                 </div>
               </div>
@@ -108,12 +115,24 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getProductos } from '@/lib/supabaseClient'
+import { ShoppingCart } from 'lucide-vue-next'
 import { resolveProductImage } from '@/lib/imageHelper'
+import { useCarritoStore } from '@/stores/carritoStore'
+import { useProductosStore } from '@/stores/productosStore'
 
-const productos = ref([])
-const loading = ref(false)
-const error = ref(false)
+const carrito = useCarritoStore()
+const productosStore = useProductosStore()
+
+function agregarDesdeGrid(e, producto) {
+  e.preventDefault()
+  e.stopPropagation()
+  carrito.agregarProducto(producto)
+}
+
+// Acceso reactivo al store
+const productos = computed(() => productosStore.productos)
+const loading = computed(() => productosStore.loading)
+const error = computed(() => productosStore.error)
 
 // Filtros
 const filtroTipo = ref(null)
@@ -167,17 +186,11 @@ const formatPrice = (precio) => {
 }
 
 const fetchProductos = async () => {
-  loading.value = true
-  error.value = false
   try {
-    const data = await getProductos()
-    productos.value = data
+    const data = await productosStore.fetchProductos()
     precioMax.value = Math.ceil(Math.max(...data.map(p => Number(p.precio))))
   } catch (err) {
-    console.error('Error al cargar productos:', err)
-    error.value = true
-  } finally {
-    loading.value = false
+    // El store ya maneja el error
   }
 }
 
@@ -399,14 +412,14 @@ onMounted(() => {
 .product-image-wrapper {
   position: relative;
   overflow: hidden;
-  height: 280px;
   background-color: #f5f5f5;
 }
 
 .product-image {
   width: 100%;
-  height: 100%;
+  aspect-ratio: 3 / 4;
   object-fit: cover;
+  object-position: center 60%;
   transition: transform 0.3s ease;
 }
 
@@ -479,15 +492,26 @@ onMounted(() => {
   font-family: 'Arial', sans-serif;
 }
 
-.ver-detalle {
-  font-size: 0.85rem;
-  color: #c9a84c;
+
+.btn-agregar-grid {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.9rem;
+  background: #c9a84c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
   font-weight: 600;
-  transition: color 0.2s;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  white-space: nowrap;
 }
 
-.product-card:hover .ver-detalle {
-  color: #b39340;
+.btn-agregar-grid:hover {
+  background: #b39340;
+  transform: scale(1.05);
 }
 
 /* Media Queries */
@@ -513,7 +537,7 @@ onMounted(() => {
   }
 
   .product-image-wrapper {
-    height: 240px;
+    /* aspect-ratio se mantiene responsive */
   }
 
   .filtros-bar {

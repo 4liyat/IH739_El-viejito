@@ -20,21 +20,34 @@
       <h2 class="section__title">Nuestros Tequilas</h2>
       <p class="section__subtitle">Una selección de lo mejor de nuestra destilería</p>
 
-      <!-- Swiper -->
-      <div class="swiper product-swiper">
+      <!-- Swiper con productos reales desde Supabase -->
+      <div v-if="productosStore.loading" class="slider-loading">
+        <p>Cargando productos...</p>
+      </div>
+      <div v-else class="swiper product-swiper">
         <div class="swiper-wrapper">
           <div
-            v-for="product in featuredProducts"
-            :key="product.id"
+            v-for="producto in productosStore.productos"
+            :key="producto.id"
             class="swiper-slide product-card"
           >
-            <div class="product-card__img-wrap">
-              <img :src="product.img" :alt="product.name" loading="lazy" />
-            </div>
-            <div class="product-card__info">
-              <h3>{{ product.name }}</h3>
-              <p>{{ product.description }}</p>
-            </div>
+            <RouterLink
+              :to="{ name: 'producto-detalle', params: { id: producto.id } }"
+              class="product-card__link"
+            >
+              <div class="product-card__img-wrap">
+                <img
+                  :src="resolveProductImage(producto.imagen_url)"
+                  :alt="producto.nombre"
+                  loading="lazy"
+                />
+              </div>
+              <div class="product-card__info">
+                <h3>{{ producto.nombre }}</h3>
+                <p>{{ producto.descripcion }}</p>
+                <span class="product-card__price">{{ formatPrice(producto.precio) }}</span>
+              </div>
+            </RouterLink>
           </div>
         </div>
         <div class="swiper-pagination"></div>
@@ -62,7 +75,7 @@
 </template>
 
 <script setup>
-  import { onMounted } from 'vue'
+  import { onMounted, nextTick, watch } from 'vue'
   import { RouterLink } from 'vue-router'
   import Swiper from 'swiper'
   import { Navigation, Pagination, Autoplay } from 'swiper/modules'
@@ -70,41 +83,29 @@
   import 'swiper/css/navigation'
   import 'swiper/css/pagination'
 
-  // Importación de imágenes locales
   import imgHistoria from '@/assets/historia.webp'
-  import imgHero from '@/assets/hero-nosotros.webp'
-  import imgBlanco from '@/assets/tequila-blanco.webp'
-  import imgReposado from '@/assets/tequila-reposado.webp'
-  import imgAnejo from '@/assets/tequila-anejo.webp'
+  import { resolveProductImage } from '@/lib/imageHelper'
+  import { useProductosStore } from '@/stores/productosStore'
 
-  // Datos de productos con tus imágenes de marca
-  const featuredProducts = [
-    {
-      id: 1,
-      name: 'Blanco Clásico',
-      description: 'Cristalino, fresco y con notas herbales características del agave azul.',
-      img: imgBlanco
-    },
-    {
-      id: 2,
-      name: 'Reposado Suave',
-      description: 'Reposado 8 meses en barrica de roble blanco. Notas a vainilla y caramelo.',
-      img: imgReposado
-    },
-    {
-      id: 3,
-      name: 'Añejo Premium',
-      description: 'Añejado 18 meses. Complejo, con notas a chocolate amargo y frutos secos.',
-      img: imgAnejo
-    }
-  ]
+  const productosStore = useProductosStore()
 
-  onMounted(() => {
-    new Swiper('.product-swiper', {
+  const formatPrice = (precio) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN'
+    }).format(precio)
+  }
+
+  let swiperInstance = null
+
+  function initSwiper() {
+    if (swiperInstance) swiperInstance.destroy(true, true)
+    const totalSlides = productosStore.productos.length
+    swiperInstance = new Swiper('.product-swiper', {
       modules: [Navigation, Pagination, Autoplay],
       slidesPerView: 1,
       spaceBetween: 24,
-      loop: true,
+      loop: totalSlides > 3,
       autoplay: { delay: 4000, disableOnInteraction: false },
       pagination: { el: '.swiper-pagination', clickable: true },
       navigation: {
@@ -113,9 +114,17 @@
       },
       breakpoints: {
         640:  { slidesPerView: 2 },
-        1024: { slidesPerView: 3 }
+        1024: { slidesPerView: Math.min(3, totalSlides) }
       }
     })
+  }
+
+  onMounted(async () => {
+    await productosStore.fetchProductos()
+    await nextTick()
+    if (productosStore.productos.length) {
+      initSwiper()
+    }
   })
 </script>
 
@@ -258,28 +267,52 @@
     background: #c9a84c;
   }
 
+  .slider-loading {
+    text-align: center;
+    padding: 3rem;
+    color: #888;
+  }
+
   /* ── Product card ── */
   .product-card {
     border-radius: 6px;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     background: #fff;
-    transition: transform 0.25s;
+    transition: transform 0.25s, box-shadow 0.25s;
+    height: 100%;
   }
 
   .product-card:hover {
     transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  }
+
+  .product-card__link {
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .product-card__img-wrap {
+    overflow: hidden;
   }
 
   .product-card__img-wrap img {
     width: 100%;
-    height: 280px;
+    aspect-ratio: 3 / 4;
     object-fit: cover;
+    object-position: center 60%;
     display: block;
   }
 
   .product-card__info {
     padding: 1.2rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 
   .product-card__info h3 {
@@ -291,7 +324,28 @@
   .product-card__info p {
     font-size: 0.9rem;
     color: #555;
-    margin: 0;
+    margin: 0 0 0.6rem;
+    flex: 1;
+    min-height: 3.5em;
+  }
+
+  .product-card__price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #c9a84c;
+  }
+
+  /* Espacio para hover y paginación debajo de las cards */
+  :deep(.swiper) {
+    padding-bottom: 2.5rem;
+  }
+
+  :deep(.swiper-wrapper) {
+    padding: 0.5rem 0;
+  }
+
+  :deep(.swiper-pagination) {
+    bottom: 0 !important;
   }
 
   /* ── Welcome ── */
